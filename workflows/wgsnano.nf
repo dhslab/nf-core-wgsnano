@@ -48,9 +48,18 @@ include { INPUT_CHECK } from '../subworkflows/local/input_check'
 //
 // MODULE: Installed directly from nf-core/modules
 //
-include { FASTQC                      } from '../modules/nf-core/fastqc/main'
-include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
+include { GUPPY_BASECALLER            } from '../modules/local/GUPPY_BASECALLER'
+include { GUPPY_BASECALLER_GPU        } from '../modules/local/GUPPY_BASECALLER_GPU'
+include { PYCOQC                      } from '../modules/local/PYCOQC'
+include { GUPPY_ALIGNER               } from '../modules/local/GUPPY_ALIGNER'
+include { SAMTOOLS_MERGE              } from '../modules/local/SAMTOOLS_MERGE'
+include { PEPPER                      } from '../modules/local/PEPPER'
+include { SAMTOOLS_INDEX              } from '../modules/local/SAMTOOLS_INDEX'
+include { MOSDEPTH                    } from '../modules/local/MOSDEPTH'
+include { MODBAM2BED                  } from '../modules/local/MODBAM2BED'
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoftwareversions/main'
+include { MULTIQC                     } from '../modules/local/MULTIQC'
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -74,12 +83,108 @@ workflow WGSNANO {
     ch_versions = ch_versions.mix(INPUT_CHECK.out.versions)
 
     //
-    // MODULE: Run FastQC
+    // CHANNEL: Channel construction to stream reference genome fasta file
     //
-    FASTQC (
-        INPUT_CHECK.out.reads
+    ch_fasta = Channel.fromPath(params.fasta)
+
+    //
+    // MODULE: Guppy Basecaller
+    //
+
+    // Run with GPU if use_gpu = true, and set a channel to stream Guppy Basecaller output
+    if ( params.use_gpu ) {
+        GUPPY_BASECALLER_GPU (
+            INPUT_CHECK.out.reads
+        )
+        ch_versions = ch_versions.mix(GUPPY_BASECALLER_GPU.out.versions)
+        ch_basecall_out = GUPPY_BASECALLER_GPU.out
+    } else {
+        GUPPY_BASECALLER (
+            INPUT_CHECK.out.reads
+        )
+        ch_versions = ch_versions.mix(GUPPY_BASECALLER.out.versions)
+        ch_basecall_out = GUPPY_BASECALLER.out
+    }
+
+    //
+    // MODULE: PycoQC (QC from Basecall results)
+    //
+    PYCOQC (
+        ch_basecall_out.summary
     )
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    ch_versions = ch_versions.mix(PYCOQC.out.versions)
+
+
+    //
+    // CHANNEL: Channel operation group unaligned bams paths by sample (i.e bams of reads from multiple flow cells but the same sample streamed together to be fed for alignment module)
+    //
+    ch_basecall_out // basecll output channel
+    .basecall_bams_path // bams path output
+    .map { mata, bams -> [[sample: mata.sample] , bams]} // make sample name the only mets (remove flow cell and other info)
+    .groupTuple(by: 0) // group bams by meta (i.e sample) which zero indexed
+    .set { ch_bams_path_per_sample } // set channel name
+
+
+    //
+    // MODULE: GUPPY_ALIGNER for Alignment
+    //
+    GUPPY_ALIGNER (
+        ch_bams_path_per_sample,
+        file(params.fasta)
+    )
+    ch_versions = ch_versions.mix(GUPPY_ALIGNER.out.versions)
+
+    //
+    // MODULE: Samtools merge all bams
+    //
+    SAMTOOLS_MERGE (
+        GUPPY_ALIGNER.out.bams,
+        GUPPY_ALIGNER.out.bais
+    )
+    ch_versions = ch_versions.mix(SAMTOOLS_MERGE.out.versions)
+
+
+    //
+    // MODULE: PEPPER
+    //
+    PEPPER (
+        SAMTOOLS_MERGE.out.bam,
+        SAMTOOLS_MERGE.out.bai,
+        file(params.fasta)
+    )
+    ch_versions = ch_versions.mix(PEPPER.out.versions)
+
+    //
+    // MODULE: Index PEPPER bam
+    //
+    SAMTOOLS_INDEX (
+        PEPPER.out.bam
+    )
+    ch_versions = ch_versions.mix(SAMTOOLS_INDEX.out.versions)
+
+
+    //
+    // MODULE: MOSDEPTH for depth calculation
+    //
+    MOSDEPTH (
+        SAMTOOLS_INDEX.out.bam,
+        SAMTOOLS_INDEX.out.bai
+    )
+    ch_versions = ch_versions.mix(MOSDEPTH.out.versions)
+
+
+    //
+    // MODULE: MODBAM2BED to extract methylation data
+    //
+    MODBAM2BED (
+        SAMTOOLS_INDEX.out.bam,
+        SAMTOOLS_INDEX.out.bai,
+        file(params.fasta)
+    )
+    ch_versions = ch_versions.mix(MODBAM2BED.out.versions)
+
+
+
 
     CUSTOM_DUMPSOFTWAREVERSIONS (
         ch_versions.unique().collectFile(name: 'collated_versions.yml')
@@ -98,7 +203,18 @@ workflow WGSNANO {
     ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(PYCOQC.out.json.collect{it[1]}.ifEmpty([]))
+
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_txt.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.summary_txt.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_txt.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_bed.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_csi.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_bed.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_csi.collect{it[1]}.ifEmpty([]))
+
+
+
 
     MULTIQC (
         ch_multiqc_files.collect(),
@@ -107,6 +223,9 @@ workflow WGSNANO {
         ch_multiqc_logo.toList()
     )
     multiqc_report = MULTIQC.out.report.toList()
+    // emit: Channel.empty()
+    // emit: GUPPY_BASECALLER.out.basecall_bams_path.map { mata, bams -> [mata.sample , bams]} .groupTuple()
+    // emit : ch_bams_path_per_sample
 }
 
 /*

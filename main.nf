@@ -41,6 +41,8 @@ include { WGSNANO } from './workflows/wgsnano'
 //
 workflow NFCORE_WGSNANO {
     WGSNANO ()
+    // Emit for testing purpose
+    // emit: WGSNANO.out
 }
 
 /*
@@ -55,6 +57,8 @@ workflow NFCORE_WGSNANO {
 //
 workflow {
     NFCORE_WGSNANO ()
+    // Emit for testing purpose
+    // emit: NFCORE_WGSNANO.out.view()
 }
 
 /*

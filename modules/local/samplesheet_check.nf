@@ -19,7 +19,7 @@ process SAMPLESHEET_CHECK {
 
     script: // This script is bundled with the pipeline, in nf-core/wgsnano/bin/
     """
-    check_samplesheet.py \\
+    python check_samplesheet.py \\
         $samplesheet \\
         samplesheet.valid.csv
 

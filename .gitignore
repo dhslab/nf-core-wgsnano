@@ -1,8 +1,11 @@
 .nextflow*
 work/
-data/
+test_data/
 results/
 .DS_Store
 testing/
 testing*
 *.pyc
+stub-data
+conf/dhslab_test.config
+._nextflow*

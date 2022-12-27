@@ -9,5 +9,9 @@ report_section_order:
     order: -1001
   "nf-core-wgsnano-summary":
     order: -1002
+  "pycoqc":
+    order: 100
+  "mosdepth":
+    order: 90
 
 export_plots: true
