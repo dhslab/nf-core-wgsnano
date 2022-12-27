@@ -133,7 +133,7 @@ NXF_HOME=${PWD}/.nextflow LSF_DOCKER_VOLUMES="/storage1/fs1/dspencer/Active:/sto
    3. Run the pipeline in `stub` mode
 ```
 git clone https://github.com/dhslab/nf-core-wgsnano.git
-cd wgsnano/
+cd nf-core-wgsnano/
 aws s3 sync s3://davidspencerlab/nextflow/wgsnano/test-datasets/stub-test/ stub-test/ --no-sign-request
 nextflow run main.nf -stub -profile test,docker --outdir results
 ```
