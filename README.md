@@ -69,7 +69,7 @@ The following parameters are set to the shown default values, but should be modi
 
 ### **1) Directly from GitHub:**
 ```bash
-LSF_DOCKER_VOLUMES="/storage1/fs1/dspencer/Active:/storage1/fs1/dspencer/Active $HOME:$HOME" bsub -g /dspencer/nextflow -G compute-dspencer -q dspencer -e nextflow_launcher.err -o nextflow_launcher.log -We 2:00 -n 2 -M 12GB -R "select[mem>=16000] span[hosts=1] rusage[mem=16000]" -a "docker(ghcr.io/dhslab/docker-nextflow)" "NXF_HOME=${PWD}/.nextflow ; nextflow run dhslab/nf-core-wgsnano -r dev -profile test,ris,dhslab --outdir results"
+NXF_HOME=${PWD}/.nextflow LSF_DOCKER_VOLUMES="/storage1/fs1/dspencer/Active:/storage1/fs1/dspencer/Active $HOME:$HOME" bsub -g /dspencer/nextflow -G compute-dspencer -q dspencer -e nextflow_launcher.err -o nextflow_launcher.log -We 2:00 -n 2 -M 12GB -R "select[mem>=16000] span[hosts=1] rusage[mem=16000]" -a "docker(ghcr.io/dhslab/docker-nextflow)" nextflow run dhslab/nf-core-wgsnano -r dev -profile test,ris,dhslab --outdir results
 ```
 **Notice that three profiles are used here:**
 1. `test`-> to provide `input` and `fasta` paths for the test run
@@ -79,8 +79,9 @@ LSF_DOCKER_VOLUMES="/storage1/fs1/dspencer/Active:/storage1/fs1/dspencer/Active 
 ### **2) Alternatively, clone the repository and run the pipeline from local directory:**
 ```bash
 git clone https://github.com/dhslab/nf-core-wgsnano.git
-cd wgsnano/
-LSF_DOCKER_VOLUMES="/storage1/fs1/dspencer/Active:/storage1/fs1/dspencer/Active $HOME:$HOME" bsub -g /dspencer/nextflow -G compute-dspencer -q dspencer -e nextflow_launcher.err -o nextflow_launcher.log -We 2:00 -n 2 -M 12GB -R "select[mem>=16000] span[hosts=1] rusage[mem=16000]" -a "docker(ghcr.io/dhslab/docker-nextflow)" "NXF_HOME=${PWD}/.nextflow ; nextflow run main.nf -profile test,ris,dhslab --outdir results"
+cd nf-core-wgsnano/
+chmod +x bin/*
+NXF_HOME=${PWD}/.nextflow LSF_DOCKER_VOLUMES="/storage1/fs1/dspencer/Active:/storage1/fs1/dspencer/Active $HOME:$HOME" bsub -g /dspencer/nextflow -G compute-dspencer -q dspencer -e nextflow_launcher.err -o nextflow_launcher.log -We 2:00 -n 2 -M 12GB -R "select[mem>=16000] span[hosts=1] rusage[mem=16000]" -a "docker(ghcr.io/dhslab/docker-nextflow)" nextflow run main.nf -profile test,ris,dhslab --outdir results
 ```
 ### **Directory tree for test run output:**
 
