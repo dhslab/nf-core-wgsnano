@@ -9,3 +9,4 @@ testing*
 stub-data
 conf/dhslab_test.config
 ._nextflow*
+._README.md
