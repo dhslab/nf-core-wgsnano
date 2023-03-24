@@ -26,7 +26,8 @@ process PEPPER {
         -t ${task.cpus} \\
         --${params.nanopore_reads_type} \\
         --phased_output \\
-        --keep_intermediate_bam_files
+        --keep_intermediate_bam_files \\
+        --pepper_include_supplementary
 
 
     cat <<-END_VERSIONS > versions.yml
