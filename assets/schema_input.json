@@ -31,6 +31,6 @@
                 ]
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": [ "id","sample","flowcell","fast5_path","batch","kit" ]
     }
 }

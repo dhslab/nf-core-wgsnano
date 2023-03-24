@@ -10,7 +10,7 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["input", "outdir"],
+            "required": ["outdir"],
             "properties": {
                 "input": {
                     "type": "string",
@@ -182,6 +182,11 @@
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
                 },
+                "use_gpu": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to use GPU for guppy"
+                },
                 "publish_dir_mode": {
                     "type": "string",
                     "default": "copy",
@@ -265,6 +270,24 @@
                     "help_text": "By default, parameters set as _hidden_ in the schema are not shown on the command line when a user runs with `--help`. Specifying this option will tell the pipeline to show all parameters."
                 }
             }
+        },
+        "nanopore_platform_options": {
+            "title": "Nanopore platform options",
+            "type": "object",
+            "description": "",
+            "default": "",
+            "properties": {
+                "nanopore_reads_type": {
+                    "type": "string",
+                    "default": "ont_r10_q20",
+                    "description": "PEPPER's reads-type option"
+                },
+                "basecall_config": {
+                    "type": "string",
+                    "default": "dna_r10.4.1_e8.2_400bps_modbases_5mc_cg_sup.cfg",
+                    "description": "Guppy's config file for basecalling"
+                }
+            }
         }
     },
     "allOf": [
@@ -282,6 +305,9 @@
         },
         {
             "$ref": "#/definitions/generic_options"
+        },
+        {
+            "$ref": "#/definitions/nanopore_platform_options"
         }
     ]
 }
