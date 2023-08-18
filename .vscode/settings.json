@@ -5,8 +5,7 @@
     "spellright.documentTypes": [
         "markdown",
         "latex",
-        "plaintext",
-        "nextflow"
+        "plaintext"
     ],
     "spellright.parserByClass": {
         "nextflow": {

@@ -16,7 +16,6 @@ for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true
 
 // Check mandatory parameters
 if (params.input) { ch_input = file(params.input) } else { exit 1, 'Input samplesheet not specified!' }
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     CONFIG FILES
@@ -81,55 +80,63 @@ workflow WGSNANO {
         ch_input
     )
     ch_versions = ch_versions.mix(INPUT_CHECK.out.versions)
-
     //
     // CHANNEL: Channel construction to stream reference genome fasta file
     //
     ch_fasta = Channel.fromPath(params.fasta)
+    // Run basecall if input is fast5
+    if (params.reads_format == 'fast5') {
+        //
+        // MODULE: Guppy Basecaller
+        //
 
-    //
-    // MODULE: Guppy Basecaller
-    //
+        // Run with GPU if use_gpu = true, and set a channel to stream Guppy Basecaller output
+        if ( params.use_gpu ) {
+            GUPPY_BASECALLER_GPU (
+                INPUT_CHECK.out.reads
+            )
+            ch_versions = ch_versions.mix(GUPPY_BASECALLER_GPU.out.versions)
+            ch_basecall_out = GUPPY_BASECALLER_GPU.out
+        } else {
+            GUPPY_BASECALLER (
+                INPUT_CHECK.out.reads
+            )
+            ch_versions = ch_versions.mix(GUPPY_BASECALLER.out.versions)
+            ch_basecall_out = GUPPY_BASECALLER.out
+        }
 
-    // Run with GPU if use_gpu = true, and set a channel to stream Guppy Basecaller output
-    if ( params.use_gpu ) {
-        GUPPY_BASECALLER_GPU (
-            INPUT_CHECK.out.reads
+        //
+        // MODULE: PycoQC (QC from Basecall results)
+        //
+        PYCOQC (
+            ch_basecall_out.summary
         )
-        ch_versions = ch_versions.mix(GUPPY_BASECALLER_GPU.out.versions)
-        ch_basecall_out = GUPPY_BASECALLER_GPU.out
-    } else {
-        GUPPY_BASECALLER (
-            INPUT_CHECK.out.reads
-        )
-        ch_versions = ch_versions.mix(GUPPY_BASECALLER.out.versions)
-        ch_basecall_out = GUPPY_BASECALLER.out
+        ch_versions = ch_versions.mix(PYCOQC.out.versions)
+
+
+        //
+        // CHANNEL: Channel operation group unaligned bams paths by sample (i.e bams of reads from multiple flow cells but the same sample streamed together to be fed for alignment module)
+        //
+        ch_basecall_out // basecll output channel
+        .basecall_bams_path // bams path output
+        .map { meta, bams -> [[sample: meta.sample] , bams]} // make sample name the only mets (remove flow cell and other info)
+        .groupTuple(by: 0) // group bams by meta (i.e sample) which zero indexed
+        .set { ch_reads_path_per_sample } // set channel name
+
+    } else if (params.reads_format == 'fastq' | params.reads_format == 'bam') {
+        INPUT_CHECK.out.reads
+        .map { meta, reads -> [[sample: meta.sample] , reads]}
+        .groupTuple(by: 0)
+        .dump(pretty: true)
+        .set { ch_reads_path_per_sample }
+
     }
-
-    //
-    // MODULE: PycoQC (QC from Basecall results)
-    //
-    PYCOQC (
-        ch_basecall_out.summary
-    )
-    ch_versions = ch_versions.mix(PYCOQC.out.versions)
-
-
-    //
-    // CHANNEL: Channel operation group unaligned bams paths by sample (i.e bams of reads from multiple flow cells but the same sample streamed together to be fed for alignment module)
-    //
-    ch_basecall_out // basecll output channel
-    .basecall_bams_path // bams path output
-    .map { mata, bams -> [[sample: mata.sample] , bams]} // make sample name the only mets (remove flow cell and other info)
-    .groupTuple(by: 0) // group bams by meta (i.e sample) which zero indexed
-    .set { ch_bams_path_per_sample } // set channel name
-
 
     //
     // MODULE: GUPPY_ALIGNER for Alignment
     //
     GUPPY_ALIGNER (
-        ch_bams_path_per_sample,
+        ch_reads_path_per_sample,
         file(params.fasta)
     )
     ch_versions = ch_versions.mix(GUPPY_ALIGNER.out.versions)
@@ -203,7 +210,10 @@ workflow WGSNANO {
     ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-    ch_multiqc_files = ch_multiqc_files.mix(PYCOQC.out.json.collect{it[1]}.ifEmpty([]))
+    if (params.reads_format == 'fast5') {
+        ch_multiqc_files = ch_multiqc_files.mix(PYCOQC.out.json.collect{it[1]}.ifEmpty([]))
+    }
+
 
     ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_txt.collect{it[1]}.ifEmpty([]))
     ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.summary_txt.collect{it[1]}.ifEmpty([]))
@@ -224,8 +234,8 @@ workflow WGSNANO {
     )
     multiqc_report = MULTIQC.out.report.toList()
     // emit: Channel.empty()
-    // emit: GUPPY_BASECALLER.out.basecall_bams_path.map { mata, bams -> [mata.sample , bams]} .groupTuple()
-    // emit : ch_bams_path_per_sample
+    // emit: GUPPY_BASECALLER.out.basecall_bams_path.map { meta, bams -> [meta.sample , bams]} .groupTuple()
+    // emit : ch_reads_path_per_sample
 }
 
 /*

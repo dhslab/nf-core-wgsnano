@@ -12,7 +12,7 @@ workflow INPUT_CHECK {
     SAMPLESHEET_CHECK ( samplesheet )
         .csv
         .splitCsv ( header:true, sep:',' )
-        .map { create_fast5_channel(it) }
+        .map { create_reads_channel(it) }
         .set { reads }
 
     emit:
@@ -21,7 +21,7 @@ workflow INPUT_CHECK {
 }
 
 // Function to get list of [ meta, [ fastq_1, fastq_2 ] ]
-def create_fast5_channel(LinkedHashMap row) {
+def create_reads_channel(LinkedHashMap row) {
     // create meta map
     def meta = [:]
     meta.id         = row.id
@@ -30,8 +30,8 @@ def create_fast5_channel(LinkedHashMap row) {
     meta.batch         = row.batch
     meta.kit         = row.kit
 
-    // add path(s) of the fast5 files to the meta map
-    def fast5_meta = []
-        fast5_meta = [ meta, row.fast5_path ]
-    return fast5_meta
+    // add path(s) of the reads files to the meta map
+    def reads_meta = []
+        reads_meta = [ meta, row.reads ]
+    return reads_meta
 }
