@@ -20,7 +20,7 @@ workflow INPUT_CHECK {
     versions = SAMPLESHEET_CHECK.out.versions // channel: [ versions.yml ]
 }
 
-// Function to get list of [ meta, [ fastq_1, fastq_2 ] ]
+// Function to get list of [ meta, [ reads ] ]
 def create_reads_channel(LinkedHashMap row) {
     // create meta map
     def meta = [:]

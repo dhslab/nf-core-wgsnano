@@ -1,5 +1,5 @@
-process SAMTOOLS_INDEX {
-    label 'process_medium'
+process SAMTOOLS_SORT {
+    label 'process_high'
 
     conda "bioconda::samtools=1.16.1"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -7,19 +7,17 @@ process SAMTOOLS_INDEX {
         'quay.io/biocontainers/samtools:1.16.1--h6899075_1' }"
 
     input:
-    tuple val(meta), path(input)
+        tuple val(meta), path(aligned_bams)
 
     output:
-    tuple val(meta), path("${meta.sample}.haplotagged.bam")     , emit: bam
-    tuple val(meta), path("${meta.sample}.haplotagged.bam.bai") , emit: bai
-    path  "versions.yml"                                        , emit: versions
+        tuple val(meta), path("${meta.sample}.sorted.bam")    , emit: bam
+        tuple val(meta), path("${meta.sample}.sorted.bam.bai"), emit: bai
+        path  ("versions.yml")                                , emit: versions
 
     script:
     """
-    samtools \\
-        index \\
-        -@ ${task.cpus-1} \\
-        $input
+    samtools sort -o ${meta.sample}.sorted.bam ${aligned_bams} &&
+    samtools index ${meta.sample}.sorted.bam
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

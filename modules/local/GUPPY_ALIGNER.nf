@@ -7,7 +7,7 @@ process GUPPY_ALIGNER {
 
     input:
 
-        tuple val(meta), path (reads_paths) // reads_paths not necessarily to be referred to in the script. However we know this input will dump bam files paths which start with "basecall_*" and will be available in the working directory
+        tuple val(meta), path (reads_paths) 
         path (reference_fasta)
 
     output:
@@ -17,7 +17,9 @@ process GUPPY_ALIGNER {
 
     script:
         """
-        guppy_aligner -i $reads_paths -t ${task.cpus} --bam_out --index -a $reference_fasta -s alignment
+        mkdir bams
+        mv *.bam bams
+        guppy_aligner -i bams -t ${task.cpus} --bam_out --index -a $reference_fasta -s alignment
         rm -rf basecall_*/
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":

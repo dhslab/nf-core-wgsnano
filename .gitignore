@@ -5,9 +5,16 @@ results/
 .DS_Store
 testing/
 testing*
+test
+test*
 *.pyc
 stub-data
 conf/dhslab_test.config
 ._nextflow*
 ._README.md
 stub-test
+.vscode
+.devcontainer
+.editorconfig
+.prettierignore
+.prettierrc.yml

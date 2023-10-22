@@ -49,7 +49,7 @@ include { INPUT_CHECK } from '../subworkflows/local/input_check'
 //
 
 include { FAST5_TO_POD5                                 } from '../modules/local/FAST5_TO_POD5'
-include { DORADO_BASECALLER                             } from '../modules/local/DORADO_BASECALLER'
+include { DORADO_BASECALLER_GPU                         } from '../modules/local/DORADO_BASECALLER_GPU'
 include { MERGE_BASECALL as MERGE_BASECALL_ID           } from '../modules/local/MERGE_BASECALL'
 include { MERGE_BASECALL as MERGE_BASECALL_SAMPLE       } from '../modules/local/MERGE_BASECALL'
 include { DORADO_BASECALL_SUMMARY                       } from '../modules/local/DORADO_BASECALL_SUMMARY'
@@ -109,7 +109,7 @@ workflow WGSNANO {
             }
             return chunkList
         }
-        // .dump(tag: 'input', pretty: true)
+        .dump(tag: 'input', pretty: true)
         .set { ch_fast5 }
 
     FAST5_TO_POD5 (
@@ -146,17 +146,17 @@ workflow WGSNANO {
         }
         return chunkList
     }
-    // .dump(tag: 'input_pod5', pretty: true)
+    .dump(tag: 'input_pod5', pretty: true)
     .set { ch_pod5 }
     }
 
 
     if (params.reads_format == 'pod5' || params.reads_format == 'fast5') {
-        DORADO_BASECALLER (
+        DORADO_BASECALLER_GPU (
             ch_pod5
         )
-        ch_versions = ch_versions.mix(DORADO_BASECALLER.out.versions)
-        DORADO_BASECALLER
+        ch_versions = ch_versions.mix(DORADO_BASECALLER_GPU.out.versions)
+        DORADO_BASECALLER_GPU
         .out
         .bam
         .map { meta, bam -> [[id: meta.id, sample: meta.sample, flowcell: meta.flowcell, batch: meta.batch, kit: meta.kit] , bam]} // make sample name the only mets (remove flow cell and other info)
@@ -186,7 +186,7 @@ workflow WGSNANO {
         ch_basecall_id_merged_bams
         .map { meta, bam -> [[sample: meta.sample] , bam]} // make sample name the only mets (remove flow cell and other info)
         .groupTuple(by: 0) // group bams by meta (i.e sample) which zero indexed
-        // .dump(tag: 'basecall_sample', pretty: true)
+        .dump(tag: 'basecall_sample', pretty: true)
         .set { ch_basecall_sample_merged_bams } // set channel name
 
 
@@ -219,14 +219,74 @@ if (params.reads_format == 'bam' ) {
         bam_files.collect { [[sample: meta.sample], it] }  // Create a list of [meta, file] pairs
     }
     .groupTuple(by: 0) // group bams by meta (i.e sample) which is zero-indexed
-    // .dump(tag: 'basecall_sample', pretty: true)
+    .dump(tag: 'basecall_sample', pretty: true)
     .set { ch_basecall_sample_merged_bams } // set channel name
 }
 
+
+
+    // Merge Bam files for each run (by id)
+    // DORADO_BASECALLER_GPU
+    // .out
+    // .bam
+    // .map { meta, bam -> [[id: meta.id, sample: meta.sample, flowcell: meta.flowcell, batch: meta.batch, kit: meta.kit] , bam]} // make sample name the only mets (remove flow cell and other info)
+    // .groupTuple(by: 0) // group bams by meta (i.e sample) which zero indexed
+    // // .dump(pretty: true)
+    // .set { ch_basecall_single_bams }
+
+    // MERGE_BASECALL_ID (
+    //     ch_basecall_single_bams
+    // )
+    // ch_versions = ch_versions.mix(MERGE_BASECALL_ID.out.versions)
+
+    // MERGE_BASECALL_ID
+    // .out
+    // .merged_bam
+    // // .dump(tag: 'basecall_id', pretty: true)
+    // .set { ch_basecall_id_merged_bams }
+
+    //
+    // CHANNEL: Channel operation group unaligned bams paths by sample (i.e bams of reads from multiple flow cells but the same sample streamed together to be fed for alignment module)
+    //
+    // ch_basecall_id_merged_bams
+    // .map { meta, bam -> [[sample: meta.sample] , bam]} // make sample name the only mets (remove flow cell and other info)
+    // .groupTuple(by: 0) // group bams by meta (i.e sample) which zero indexed
+    // .dump(tag: 'basecall_sample', pretty: true)
+    // .set { ch_basecall_sample_merged_bams } // set channel name
+
+
+    // // Dorado basecall summary
+    // DORADO_BASECALL_SUMMARY (
+    //     ch_basecall_id_merged_bams
+    // )
+
+    // DORADO_BASECALL_SUMMARY
+    // .out
+    // .summary
+    // // .dump(pretty: true)
+    // .set { ch_basecall_summary }
+
+
+    // // MODULE: PycoQC (QC from Basecall results)
+    // PYCOQC (
+    //     ch_basecall_summary
+    // )
+    // ch_versions = ch_versions.mix(PYCOQC.out.versions)
+
+
+    //
+    // MODULE: DORADO_ALIGNER for Alignment
+    //
     MERGE_BASECALL_SAMPLE (
         ch_basecall_sample_merged_bams
     )
     ch_versions = ch_versions.mix(MERGE_BASECALL_SAMPLE.out.versions)
+
+    // MERGE_BASECALL_SAMPLE
+    // .out
+    // .merged_bam
+    // // .dump(pretty: true)
+    // .set { ch_alignment_input_bams }
     
 
     DORADO_ALIGNER (
@@ -243,6 +303,15 @@ if (params.reads_format == 'bam' ) {
         DORADO_ALIGNER.out.bam
     )
     ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions)
+
+    SAMTOOLS_SORT
+    .out
+    .bam
+    .dump(pretty: true)
+
+
+
+
 
     //
     // MODULE: PEPPER
@@ -276,21 +345,33 @@ if (params.reads_format == 'bam' ) {
     //
     // MODULE: MODKIT to extract methylation data
     //
-    if (params.extract_methylation) {
-        MODKIT (
-            SAMTOOLS_INDEX.out.bam,
-            SAMTOOLS_INDEX.out.bai,
-            file(params.fasta)
-        )
+    MODKIT (
+        SAMTOOLS_INDEX.out.bam,
+        SAMTOOLS_INDEX.out.bai,
+        file(params.fasta)
+    )
     ch_versions = ch_versions.mix(MODKIT.out.versions)
 
-    }
 
 
-\
-    CUSTOM_DUMPSOFTWAREVERSIONS (
-        ch_versions.unique().collectFile(name: 'collated_versions.yml')
-    )
+
+
+    //
+    // MODULE: MODBAM2BED to extract methylation data
+    //
+    // MODBAM2BED (
+    //     SAMTOOLS_INDEX.out.bam,
+    //     SAMTOOLS_INDEX.out.bai,
+    //     file(params.fasta)
+    // )
+    // ch_versions = ch_versions.mix(MODBAM2BED.out.versions)
+
+
+
+
+    // CUSTOM_DUMPSOFTWAREVERSIONS (
+    //     ch_versions.unique().collectFile(name: 'collated_versions.yml')
+    // )
 
     //
     // MODULE: MultiQC
@@ -304,19 +385,19 @@ if (params.reads_format == 'bam' ) {
     ch_multiqc_files = Channel.empty()
     ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
-    ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
+    // ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
+    // if (params.reads_format == 'fast5') {
+    //     ch_multiqc_files = ch_multiqc_files.mix(PYCOQC.out.json.collect{it[1]}.ifEmpty([]))
+    // }
 
-    if (params.reads_format == 'fast5' || params.reads_format == 'pod5') {
-        ch_multiqc_files = ch_multiqc_files.mix(PYCOQC.out.json.collect{it[1]}.ifEmpty([]))
-    }
 
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_txt.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.summary_txt.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_txt.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_bed.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_csi.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_bed.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_csi.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_txt.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.summary_txt.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_txt.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_bed.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_csi.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_bed.collect{it[1]}.ifEmpty([]))
+    // ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_csi.collect{it[1]}.ifEmpty([]))
 
 
 
@@ -328,6 +409,9 @@ if (params.reads_format == 'bam' ) {
         ch_multiqc_logo.toList()
     )
     multiqc_report = MULTIQC.out.report.toList()
+    // emit: Channel.empty()
+    // emit: GUPPY_BASECALLER.out.basecall_bams_path.map { meta, bams -> [meta.sample , bams]} .groupTuple()
+    // emit : ch_reads_path_per_sample
 }
 
 /*
