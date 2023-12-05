@@ -16,8 +16,8 @@ process SAMTOOLS_SORT {
 
     script:
     """
-    samtools sort -o ${meta.sample}.sorted.bam ${aligned_bams} &&
-    samtools index ${meta.sample}.sorted.bam
+    samtools sort -@ ${task.cpus} -o ${meta.sample}.sorted.bam ${aligned_bams} &&
+    samtools index -@ ${task.cpus} ${meta.sample}.sorted.bam
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
