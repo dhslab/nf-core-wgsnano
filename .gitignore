@@ -18,3 +18,5 @@ stub-test
 .editorconfig
 .prettierignore
 .prettierrc.yml
+modules/.dir_bash_history
+**/.dir_bash_history
