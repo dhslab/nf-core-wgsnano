@@ -1,5 +1,10 @@
+// Function to determine the label
+def determineLabel() {
+    return params.use_gpu ? 'process_gpu_long' : 'process_high'
+}
+
 process DORADO_BASECALLER {
-    label 'process_gpu_long'
+    label determineLabel()
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'mdivr/dorado:v1' :
