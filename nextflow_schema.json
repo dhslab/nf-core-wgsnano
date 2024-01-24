@@ -323,11 +323,10 @@
         },
         "dorado_files_chunksize": {
           "type": "integer",
-          "default": 2,
+          "default": 500,
           "description": "Specifies the number of files to be processed simultaneously in the Dorado basecalling"
         }
-      },
-      "required": ["use_gpu"]
+      }
     },
     "pepper_options": {
       "title": "PEPPER Options",
