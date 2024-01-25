@@ -7,8 +7,8 @@ process DORADO_BASECALLER {
     label determineLabel()
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'mdivr/dorado:v1' :
-        'mdivr/dorado:v1' }"
+        'mdivr/dorado:v2' :
+        'mdivr/dorado:v2' }"
 
     input:
 
