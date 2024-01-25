@@ -2,8 +2,8 @@ process PEPPER {
     label 'process_high'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'kishwars/pepper_deepvariant:r0.8' :
-        'kishwars/pepper_deepvariant:r0.8' }"
+        'mdivr/pepper:v1' :
+        'mdivr/pepper:v1' }"
 
     input:
         tuple val(meta), path(aligned_merged_bam)
