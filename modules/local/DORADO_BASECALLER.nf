@@ -21,7 +21,6 @@ process DORADO_BASECALLER {
     script:
         def args = task.ext.args ?: ''
         def device = params.use_gpu ? "cuda:all": "cpu"
-        def chunksize = params.dorado_reads_chunksize ?: 5000
         def mod_model = params.dorado_modifications_model ? "--modified-bases ${params.dorado_modifications_model}" : ''
 
         """
@@ -35,7 +34,6 @@ process DORADO_BASECALLER {
                 pod5/ \\
                 --device ${device} \\
                 ${mod_model} \\
-                --chunksize ${chunksize} \\
                 > ${meta.id}.${meta.chunkNumber}.bam
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
