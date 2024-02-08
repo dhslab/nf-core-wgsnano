@@ -308,7 +308,7 @@
         },
         "dorado_model": {
           "type": "string",
-          "default": "dna_r10.4.1_e8.2_400bps_sup@v4.1.0",
+          "default": "dna_r10.4.1_e8.2_400bps_sup@v4.3.0",
           "description": "Dorado Basecalling basic model"
         },
         "dorado_modifications_model": {
@@ -316,15 +316,10 @@
           "default": "5mCG_5hmCG",
           "description": "Dorado Basecalling modification model"
         },
-        "dorado_reads_chunksize": {
-          "type": "integer",
-          "default": 1000,
-          "description": "Sets the chunk size for processing reads in the Dorado basecalling"
-        },
         "dorado_files_chunksize": {
           "type": "integer",
-          "default": 500,
-          "description": "Specifies the number of files to be processed simultaneously in the Dorado basecalling"
+          "default": 20000,
+          "description": "Specifies the number of files to be processed simultaneously by one Nextflow job in the Dorado basecalling"
         }
       }
     },
