@@ -11,9 +11,8 @@ process PEPPER {
         path (reference_fasta)
 
     output:
-        tuple val(meta), path("${meta.sample}.haplotagged.bam")    , emit: bam
-        tuple val(meta), path("${meta.sample}*.vcf*")               , emit:vcf
-        path  ("versions.yml")                                                      , emit: versions
+        tuple val(meta), path("${meta.sample}*.vcf*")               , emit: vcf
+        path  ("versions.yml")                                      , emit: versions
 
     script:
     """
@@ -26,9 +25,7 @@ process PEPPER {
         -t ${task.cpus} \\
         --${params.nanopore_reads_type} \\
         --phased_output \\
-        --keep_intermediate_bam_files \\
-        --pepper_include_supplementary
-
+        --skip_final_phased_bam
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
