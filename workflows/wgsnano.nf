@@ -62,6 +62,7 @@ include { MOSDEPTH                                      } from '../modules/local
 include { MODKIT                                        } from '../modules/local/MODKIT'
 include { CUSTOM_DUMPSOFTWAREVERSIONS                   } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 include { MULTIQC                                       } from '../modules/local/MULTIQC'
+include { WHATSHAP                                      } from '../modules/local/WHATSHAP.nf'
 
 
 /*
@@ -261,7 +262,8 @@ if (params.reads_format == 'bam' ) {
         SAMTOOLS_SORT.out.bam,
         SAMTOOLS_SORT.out.bai,
         PEPPER.out.vcf,
-        file(params.fasta)
+        file(params.fasta),
+        file(params.fasta_index)
     )
     ch_versions = ch_versions.mix(WHATSHAP.out.versions)
 
