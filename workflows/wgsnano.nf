@@ -62,6 +62,7 @@ include { MOSDEPTH                                      } from '../modules/local
 include { MODKIT                                        } from '../modules/local/MODKIT'
 include { CUSTOM_DUMPSOFTWAREVERSIONS                   } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 include { MULTIQC                                       } from '../modules/local/MULTIQC'
+include { WHATSHAP                                      } from '../modules/local/WHATSHAP.nf'
 
 
 /*
@@ -257,37 +258,37 @@ if (params.reads_format == 'bam' ) {
     //
     // MODULE: Index PEPPER bam
     //
-    SAMTOOLS_INDEX (
-        PEPPER.out.bam
+    WHATSHAP (
+        SAMTOOLS_SORT.out.bam,
+        SAMTOOLS_SORT.out.bai,
+        PEPPER.out.vcf,
+        file(params.fasta),
+        file(params.fasta_index)
     )
-    ch_versions = ch_versions.mix(SAMTOOLS_INDEX.out.versions)
-
+    ch_versions = ch_versions.mix(WHATSHAP.out.versions)
 
     //
     // MODULE: MOSDEPTH for depth calculation
     //
     MOSDEPTH (
-        SAMTOOLS_INDEX.out.bam,
-        SAMTOOLS_INDEX.out.bai
+        WHATSHAP.out.bam,
+        WHATSHAP.out.bai
     )
     ch_versions = ch_versions.mix(MOSDEPTH.out.versions)
-
 
     //
     // MODULE: MODKIT to extract methylation data
     //
     if (params.extract_methylation) {
         MODKIT (
-            SAMTOOLS_INDEX.out.bam,
-            SAMTOOLS_INDEX.out.bai,
+            WHATSHAP.out.bam,
+            WHATSHAP.out.bai,
             file(params.fasta)
         )
     ch_versions = ch_versions.mix(MODKIT.out.versions)
 
     }
 
-
-\
     CUSTOM_DUMPSOFTWAREVERSIONS (
         ch_versions.unique().collectFile(name: 'collated_versions.yml')
     )
