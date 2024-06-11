@@ -23,7 +23,7 @@ process MODKIT {
     --combine-strands \\
     --only-tabs \\
     --partition-tag HP \\
-    --prefix ${meta.sample}_accumulated_haplotype \\
+    --prefix ${meta.sample}.accumulated_haplotype \\
     ${haplotagged_bam} \\
     accumulated
 
@@ -33,7 +33,7 @@ process MODKIT {
     --cpg \\
     --only-tabs \\
     --partition-tag HP \\
-    --prefix ${meta.sample}_stranded_haplotype \\
+    --prefix ${meta.sample}.stranded_haplotype \\
     ${haplotagged_bam} \\
     stranded
 
