@@ -60,6 +60,7 @@ include { PEPPER                                        } from '../modules/local
 include { SAMTOOLS_INDEX                                } from '../modules/local/SAMTOOLS_INDEX'
 include { MOSDEPTH                                      } from '../modules/local/MOSDEPTH'
 include { MODKIT                                        } from '../modules/local/MODKIT'
+include { MODKIT_TO_BW                                  } from '../modules/local/MODKIT_TO_BW'
 include { CUSTOM_DUMPSOFTWAREVERSIONS                   } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 include { MULTIQC                                       } from '../modules/local/MULTIQC'
 include { WHATSHAP                                      } from '../modules/local/WHATSHAP.nf'
@@ -285,8 +286,14 @@ if (params.reads_format == 'bam' ) {
             WHATSHAP.out.bai,
             file(params.fasta)
         )
-    ch_versions = ch_versions.mix(MODKIT.out.versions)
+        ch_versions = ch_versions.mix(MODKIT.out.versions)
 
+        bw_input = MODKIT.out.bed.transpose()
+        MODKIT_TO_BW (
+            bw_input,
+            file(params.fasta_index)
+        )
+        ch_versions = ch_versions.mix(MODKIT_TO_BW.out.versions)
     }
 
     CUSTOM_DUMPSOFTWAREVERSIONS (
