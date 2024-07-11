@@ -11,7 +11,7 @@ process MODKIT {
         path (reference_fasta)
 
     output:
-        tuple val(meta), path ("*.bed.gz")    , emit: bed
+        tuple val(meta), path ("*.bedmethyl.gz")    , emit: bed
         path  ("versions.yml")             , emit: versions
 
     script:
@@ -21,7 +21,6 @@ process MODKIT {
     --ref ${reference_fasta} \\
     --cpg \\
     --combine-strands \\
-    --only-tabs \\
     --partition-tag HP \\
     --prefix ${meta.sample}.basemods.bedmethyl.hap \\
     ${haplotagged_bam} \\
@@ -32,16 +31,14 @@ process MODKIT {
     --ref ${reference_fasta} \\
     --combine-strands \\
     --cpg \\
-    --only-tabs \\
     ${haplotagged_bam} \\
     ${meta.sample}.basemods.bedmethyl.combined.bed
 
     mv accumulated/*.bed .
 
-    gzip -c ${meta.sample}.basemods.bedmethyl.hap_1.bed > ${meta.sample}.basemods.bedmethyl.hap_1.bed.gz
-    gzip -c ${meta.sample}.basemods.bedmethyl.hap_2.bed > ${meta.sample}.basemods.bedmethyl.hap_2.bed.gz
-    gzip -c ${meta.sample}.basemods.bedmethyl.hap_ungrouped.bed > ${meta.sample}.basemods.bedmethyl.hap_ungrouped.bed.gz
-    gzip -c ${meta.sample}.basemods.bedmethyl.combined.bed > ${meta.sample}.basemods.bedmethyl.combined.bed.gz
+    gzip -c ${meta.sample}.basemods.bedmethyl.hap_1.bed > ${meta.sample}.hap1.basemods.bedmethyl.gz
+    gzip -c ${meta.sample}.basemods.bedmethyl.hap_2.bed > ${meta.sample}.hap2.basemods.bedmethyl.gz
+    gzip -c ${meta.sample}.basemods.bedmethyl.combined.bed > ${meta.sample}.combined.basemods.bedmethyl.gz
 
 
     cat <<-END_VERSIONS > versions.yml
