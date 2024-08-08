@@ -8,6 +8,7 @@ process MODKIT_TO_BW {
         path fasta_index
 
     output:
+        tuple val(meta), path("*.bedmethyl.gz"), emit: gzipped
         tuple val(meta), path("*.bw"), emit: bw
         path  ("versions.yml")       , emit: versions
 
