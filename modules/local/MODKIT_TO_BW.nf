@@ -1,10 +1,10 @@
 process MODKIT_TO_BW {
     label 'process_low'
-
     container 'ghcr.io/dhslab/docker-baseimage:latest'
+    stageInMode 'copy'
 
     input:
-        tuple val(meta), path(bed_file)
+        tuple val(meta), path (hap_1_bed), path (hap_2_bed), path (combined_bed)
         path fasta_index
 
     output:
@@ -14,9 +14,13 @@ process MODKIT_TO_BW {
     script:
     def args = params.modifications ? "-m ${params.modifications}": "" 
     """
-    basename=$bed_file
-    output_file=\${basename/.bed.gz/.bw}
-    bedmethyl2bw.py -b $bed_file -c $fasta_index $args -o \$output_file
+    gzip -c $hap_1_bed > ${meta.sample}.hap1.basemods.bedmethyl.gz
+    gzip -c $hap_2_bed > ${meta.sample}.hap2.basemods.bedmethyl.gz
+    gzip -c $combined_bed > ${meta.sample}.combined.basemods.bedmethyl.gz
+
+    bedmethyl2bw.py -b ${meta.sample}.hap1.basemods.bedmethyl.gz -c $fasta_index $args -o ${meta.sample}.hap1.basemods.bedmethyl.bw
+    bedmethyl2bw.py -b ${meta.sample}.hap2.basemods.bedmethyl.gz -c $fasta_index $args -o ${meta.sample}.hap2.basemods.bedmethyl.bw
+    bedmethyl2bw.py -b ${meta.sample}.combined.basemods.bedmethyl.gz -c $fasta_index $args -o ${meta.sample}.combined.basemods.bedmethyl.bw
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

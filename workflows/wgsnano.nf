@@ -64,6 +64,7 @@ include { MODKIT_TO_BW                                  } from '../modules/local
 include { CUSTOM_DUMPSOFTWAREVERSIONS                   } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 include { MULTIQC                                       } from '../modules/local/MULTIQC'
 include { WHATSHAP                                      } from '../modules/local/WHATSHAP.nf'
+include { SAMTOOLS_STATS                                } from '../modules/local/SAMTOOLS_STATS.nf'
 
 
 /*
@@ -288,12 +289,18 @@ if (params.reads_format == 'bam' ) {
         )
         ch_versions = ch_versions.mix(MODKIT.out.versions)
 
-        bw_input = MODKIT.out.bed.transpose()
+        modkit_to_bw_input = MODKIT.out.hap1_bed.join(MODKIT.out.hap2_bed).join(MODKIT.out.combined_bed)
+
         MODKIT_TO_BW (
-            bw_input,
+            modkit_to_bw_input,
             file(params.fasta_index)
         )
         ch_versions = ch_versions.mix(MODKIT_TO_BW.out.versions)
+
+        SAMTOOLS_STATS (
+            WHATSHAP.out.bam
+        )
+        ch_versions = ch_versions.mix(SAMTOOLS_STATS.out.versions)
     }
 
     CUSTOM_DUMPSOFTWAREVERSIONS (

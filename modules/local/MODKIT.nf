@@ -1,5 +1,6 @@
 process MODKIT {
     label 'process_high'
+    tag "${meta.sample}"
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'ghcr.io/dhslab/docker-modkit' :
@@ -11,8 +12,11 @@ process MODKIT {
         path (reference_fasta)
 
     output:
-        tuple val(meta), path ("*.bedmethyl.gz")    , emit: bed
-        path  ("versions.yml")             , emit: versions
+        tuple val(meta), path ("${meta.sample}.basemods.bedmethyl.hap_1.bed")        , emit: hap1_bed
+        tuple val(meta), path ("${meta.sample}.basemods.bedmethyl.hap_2.bed")        , emit: hap2_bed
+        tuple val(meta), path ("${meta.sample}.basemods.bedmethyl.combined.bed")     , emit: combined_bed
+        tuple val(meta), path ("${meta.sample}.basemods.bedmethyl.hap_ungrouped.bed"), emit: ungrouped_bed
+        path  ("versions.yml")                                                       , emit: versions
 
     script:
     """
@@ -24,7 +28,7 @@ process MODKIT {
     --partition-tag HP \\
     --prefix ${meta.sample}.basemods.bedmethyl.hap \\
     ${haplotagged_bam} \\
-    accumulated
+    accumulated &&
 
     modkit pileup \\
     --threads ${task.cpus} \\
@@ -32,20 +36,13 @@ process MODKIT {
     --combine-strands \\
     --cpg \\
     ${haplotagged_bam} \\
-    ${meta.sample}.basemods.bedmethyl.combined.bed
+    ${meta.sample}.basemods.bedmethyl.combined.bed &&
 
     mv accumulated/*.bed .
-
-    gzip -c ${meta.sample}.basemods.bedmethyl.hap_1.bed > ${meta.sample}.hap1.basemods.bedmethyl.gz
-    gzip -c ${meta.sample}.basemods.bedmethyl.hap_2.bed > ${meta.sample}.hap2.basemods.bedmethyl.gz
-    gzip -c ${meta.sample}.basemods.bedmethyl.combined.bed > ${meta.sample}.combined.basemods.bedmethyl.gz
-
-
+    
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        modki: \$(modkit --version | sed 's/mod_kit //g')
+        modkit: \$(modkit --version | sed 's/mod_kit //g')
     END_VERSIONS
     """
-
-
 }
