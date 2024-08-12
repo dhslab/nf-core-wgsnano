@@ -8,8 +8,8 @@ process DORADO_BASECALLER {
     label processLabel
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'mdivr/dorado:v2' :
-        'mdivr/dorado:v2' }"
+        'ghcr.io/dhslab/docker-dorado:latest' :
+        'ghcr.io/dhslab/docker-dorado:latest' }"
 
     input:
 
@@ -31,7 +31,7 @@ process DORADO_BASECALLER {
         mkdir -p pod5
         mv *.pod5 pod5
         
-        dorado basecaller /opt/dorado/models/${params.dorado_model} \\
+        dorado basecaller ${args} /opt/dorado/models/${params.dorado_model} \\
                 pod5/ \\
                 --device ${device} \\
                 ${mod_model} \\
