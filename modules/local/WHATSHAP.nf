@@ -6,9 +6,7 @@ process WHATSHAP {
         'ghcr.io/dhslab/docker-whatshap:latest' }"
 
     input:
-        tuple val(meta), path(aligned_merged_bam)
-        tuple val(meta), path(aligned_merged_bam_index)
-        tuple val(meta), path(phased_vcf)
+        tuple val(meta), path(bam_bai_vcf_files)
         path(reference_fasta)
         path(index)
 
@@ -20,7 +18,7 @@ process WHATSHAP {
     script:
     """
         whatshap haplotag --tag-supplementary --ignore-read-groups --output-threads=${task.cpus} \\
-        -o ${meta.sample}.haplotagged.bam --reference ${reference_fasta} *phased.vcf.gz $aligned_merged_bam && \\
+        -o ${meta.sample}.haplotagged.bam --reference ${reference_fasta} ${meta.sample}.phased.vcf.gz ${meta.sample}.sorted.bam && \\
         samtools index ${meta.sample}.haplotagged.bam
 
     cat <<-END_VERSIONS > versions.yml

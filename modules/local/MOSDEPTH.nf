@@ -7,8 +7,7 @@ process MOSDEPTH {
         'quay.io/biocontainers/mosdepth:0.3.3--hdfd78af_1'}"
 
     input:
-    tuple val(meta), path(bam)
-    tuple val(meta), path(bai)
+    tuple val(meta), path(bam_bai_files)
 
     output:
     tuple val(meta), path('*.global.dist.txt')      , emit: global_txt
@@ -28,7 +27,7 @@ process MOSDEPTH {
     export MOSDEPTH_Q2=CALLABLE      # 5..149
     export MOSDEPTH_Q3=HIGH_COVERAGE # 150 ...
 
-    mosdepth -t ${task.cpus} -n -x -Q 1 --by 500 --quantize 0:1:5:150: ${meta.sample} $bam
+    mosdepth -t ${task.cpus} -n -x -Q 1 --by 500 --quantize 0:1:5:150: ${meta.sample} *bam
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -247,60 +247,69 @@ if (params.reads_format == 'bam' ) {
     )
     ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions)
 
+
     //
     // MODULE: PEPPER
     //
+    ch_pepper_input = SAMTOOLS_SORT.out.bam.mix(SAMTOOLS_SORT.out.bai).groupTuple(size:2).map{ meta, files -> [ meta, files.flatten() ]}
+    ch_pepper_input.dump(tag: "pepper")
     PEPPER (
-        SAMTOOLS_SORT.out.bam,
-        SAMTOOLS_SORT.out.bai,
+        ch_pepper_input,
         file(params.fasta)
     )
     ch_versions = ch_versions.mix(PEPPER.out.versions)
 
-    //
-    // MODULE: Index PEPPER bam
-    //
-    WHATSHAP (
-        SAMTOOLS_SORT.out.bam,
-        SAMTOOLS_SORT.out.bai,
-        PEPPER.out.vcf,
-        file(params.fasta),
-        file(params.fasta_index)
-    )
-    ch_versions = ch_versions.mix(WHATSHAP.out.versions)
+    
+    if (params.run_whatshap) {
+        
 
-    //
-    // MODULE: MOSDEPTH for depth calculation
-    //
-    MOSDEPTH (
-        WHATSHAP.out.bam,
-        WHATSHAP.out.bai
-    )
-    ch_versions = ch_versions.mix(MOSDEPTH.out.versions)
-
-    //
-    // MODULE: MODKIT to extract methylation data
-    //
-    if (params.extract_methylation) {
-        MODKIT (
-            WHATSHAP.out.bam,
-            WHATSHAP.out.bai,
-            file(params.fasta)
-        )
-        ch_versions = ch_versions.mix(MODKIT.out.versions)
-
-        modkit_to_bw_input = MODKIT.out.hap1_bed.join(MODKIT.out.hap2_bed).join(MODKIT.out.combined_bed)
-
-        MODKIT_TO_BW (
-            modkit_to_bw_input,
+        //
+        // MODULE: Index PEPPER bam
+        //
+        ch_whatshap_input = SAMTOOLS_SORT.out.bam.mix(SAMTOOLS_SORT.out.bai,PEPPER.out.vcf).groupTuple(size:3).map{ meta, files -> [ meta, files.flatten() ]}
+        ch_whatshap_input.dump(tag: "whatshap")
+        WHATSHAP (
+            ch_whatshap_input,
+            file(params.fasta),
             file(params.fasta_index)
         )
-        ch_versions = ch_versions.mix(MODKIT_TO_BW.out.versions)
+        ch_versions = ch_versions.mix(WHATSHAP.out.versions)
 
-        SAMTOOLS_STATS (
-            WHATSHAP.out.bam
+
+        //
+        // MODULE: MOSDEPTH for depth calculation
+        //
+        ch_mosdepth_input = WHATSHAP.out.bam.mix(WHATSHAP.out.bai).groupTuple(size:2).map{ meta, files -> [ meta, files.flatten() ]}
+        MOSDEPTH (
+            ch_mosdepth_input
         )
-        ch_versions = ch_versions.mix(SAMTOOLS_STATS.out.versions)
+        ch_versions = ch_versions.mix(MOSDEPTH.out.versions)
+
+
+        //
+        // MODULE: MODKIT to extract methylation data
+        //
+        
+        if (params.extract_methylation) {
+            ch_modkit_input = WHATSHAP.out.bam.mix(WHATSHAP.out.bai).groupTuple(size:2).map{ meta, files -> [ meta, files.flatten() ]}
+            MODKIT (
+                ch_modkit_input,
+                file(params.fasta)
+            )
+            ch_versions = ch_versions.mix(MODKIT.out.versions)
+
+            ch_modkit_to_bw_input = MODKIT.out.hap1_bed.join(MODKIT.out.hap2_bed).join(MODKIT.out.combined_bed)
+            MODKIT_TO_BW (
+                ch_modkit_to_bw_input,
+                file(params.fasta_index)
+            )
+            ch_versions = ch_versions.mix(MODKIT_TO_BW.out.versions)
+
+            SAMTOOLS_STATS (
+                WHATSHAP.out.bam
+            )
+            ch_versions = ch_versions.mix(SAMTOOLS_STATS.out.versions)
+        }
     }
 
     CUSTOM_DUMPSOFTWAREVERSIONS (
@@ -325,16 +334,15 @@ if (params.reads_format == 'bam' ) {
         ch_multiqc_files = ch_multiqc_files.mix(PYCOQC.out.json.collect{it[1]}.ifEmpty([]))
     }
 
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_txt.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.summary_txt.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_txt.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_bed.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_csi.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_bed.collect{it[1]}.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_csi.collect{it[1]}.ifEmpty([]))
-
-
-
+    if (params.run_whatshap) {
+        ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_txt.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.summary_txt.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_txt.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_bed.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.regions_csi.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_bed.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.quantized_csi.collect{it[1]}.ifEmpty([]))
+    }
 
     MULTIQC (
         ch_multiqc_files.collect(),

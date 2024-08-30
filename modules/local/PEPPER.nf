@@ -6,8 +6,7 @@ process PEPPER {
         'mdivr/pepper:v1' }"
 
     input:
-        tuple val(meta), path(aligned_merged_bam)
-        tuple val(meta), path(aligned_merged_bam_index)
+        tuple val(meta), path(bam_bai_files)
         path (reference_fasta)
 
     output:
@@ -18,7 +17,7 @@ process PEPPER {
     """
         export PATH=/opt/margin_dir/build/:$PATH
         run_pepper_margin_deepvariant call_variant \\
-        -b $aligned_merged_bam \\
+        -b ${meta.sample}.sorted.bam \\
         -f $reference_fasta \\
         -o . \\
         -p ${meta.sample} \\

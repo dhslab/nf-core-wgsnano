@@ -7,8 +7,7 @@ process MODKIT {
         'ghcr.io/dhslab/docker-modkit' }"
 
     input:
-        tuple val(meta), path (haplotagged_bam)
-        tuple val(meta), path (haplotagged_bam_index)
+        tuple val(meta), path (bam_bai_files)
         path (reference_fasta)
 
     output:
@@ -27,7 +26,7 @@ process MODKIT {
     --combine-strands \\
     --partition-tag HP \\
     --prefix ${meta.sample}.basemods.bedmethyl.hap \\
-    ${haplotagged_bam} \\
+    ${meta.sample}.haplotagged.bam \\
     accumulated &&
 
     modkit pileup \\
@@ -35,7 +34,7 @@ process MODKIT {
     --ref ${reference_fasta} \\
     --combine-strands \\
     --cpg \\
-    ${haplotagged_bam} \\
+    ${meta.sample}.haplotagged.bam \\
     ${meta.sample}.basemods.bedmethyl.combined.bed &&
 
     mv accumulated/*.bed .
