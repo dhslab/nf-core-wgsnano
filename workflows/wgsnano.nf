@@ -87,6 +87,7 @@ workflow WGSNANO {
         ch_input
     )
     ch_versions = ch_versions.mix(INPUT_CHECK.out.versions)
+    ch_phased_vcf = INPUT_CHECK.out.reads.map{ meta, files -> [[sample: meta.sample], meta.vcf, meta.vcf_tbi] }.dump(tag: "ch_phased_vcf")
 
     // fast5 input
     if (params.reads_format == 'fast5') {
@@ -261,15 +262,14 @@ if (params.reads_format == 'bam' ) {
 
     
     if (params.run_whatshap) {
-        
-
         //
         // MODULE: Index PEPPER bam
         //
         ch_whatshap_input = SAMTOOLS_SORT.out.bam.mix(SAMTOOLS_SORT.out.bai,PEPPER.out.vcf).groupTuple(size:3).map{ meta, files -> [ meta, files.flatten() ]}
+        input = ch_whatshap_input.join(ch_phased_vcf).dump(tag: "joined")
         ch_whatshap_input.dump(tag: "whatshap")
         WHATSHAP (
-            ch_whatshap_input,
+            input,
             file(params.fasta),
             file(params.fasta_index)
         )
