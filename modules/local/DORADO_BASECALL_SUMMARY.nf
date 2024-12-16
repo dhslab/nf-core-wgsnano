@@ -2,8 +2,8 @@ process DORADO_BASECALL_SUMMARY {
     label 'process_high'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'ghcr.io/dhslab/docker-dorado:latest' :
-        'ghcr.io/dhslab/docker-dorado:latest' }"
+        'ghcr.io/dhslab/docker-ont-dorado:latest' :
+        'ghcr.io/dhslab/docker-ont-dorado:latest' }"
 
     input:
 

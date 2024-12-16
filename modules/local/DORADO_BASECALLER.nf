@@ -8,8 +8,8 @@ process DORADO_BASECALLER {
     label processLabel
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'ghcr.io/dhslab/docker-dorado:latest' :
-        'ghcr.io/dhslab/docker-dorado:latest' }"
+        'ghcr.io/dhslab/docker-ont-dorado:latest' :
+        'ghcr.io/dhslab/docker-ont-dorado:latest' }"
 
     input:
 
@@ -27,11 +27,13 @@ process DORADO_BASECALLER {
         """
         export LANG="C"
         export LC_ALL="C"
+        export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
         mkdir -p pod5
         mv *.pod5 pod5
         
-        dorado basecaller ${args} /opt/dorado/models/${params.dorado_model} \\
+        dorado basecaller ${args}\\
+                /opt/dorado/models/${params.dorado_model} \\
                 pod5/ \\
                 --device ${device} \\
                 ${mod_model} \\
