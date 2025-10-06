@@ -33,7 +33,7 @@ Reference genome related files and options required for the workflow.
 | Parameter | Description | Type | Default | Required |
 |-----------|-----------|-----------|-----------|-----------|
 | `use_gpu` | Whether to use GPU for Dorado Basecalling | `boolean` | True | True |
-| `dorado_model` | Dorado Basecalling basic model | `string` | dna_r10.4.1_e8.2_400bps_sup@v4.3.0 |  |
+| `dorado_model` | Dorado Basecalling basic model | `string` | dna_r10.4.1_e8.2_400bps_sup@v5.2.0 |  |
 | `dorado_modifications_model` | Dorado Basecalling modification model | `string` | 5mCG_5hmCG |  |
 | `dorado_files_chunksize` | Specifies the number of files to be processed simultaneously by one Nextflow job in the Dorado basecalling | `integer` | 20000 |  |
 
