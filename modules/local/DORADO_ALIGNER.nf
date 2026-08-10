@@ -8,24 +8,25 @@ process DORADO_ALIGNER {
     input:
 
         tuple val(meta), path (reads_paths) 
-        path (index)
+        path (reference)
 
     output:
         tuple val(meta), path ("*.bam")       , emit: bam
         path "versions.yml"                   , emit: versions
 
     script:
+        def index = reference.find { it.name =~ /.*\.fai/ }
         def args = task.ext.args ?: ''
-        """        
-        dorado aligner \\
-                --threads ${task.cpus} \\
-                ${index} \\
-                ${reads_paths} \\
-                > ${meta.sample}.bam
+    """        
+    dorado aligner \\
+            --threads ${task.cpus} \\
+            ${index} \\
+            ${reads_paths} \\
+            > ${meta.sample}.bam
 
-        cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            dorado: \$(dorado --version 2>&1)
-        END_VERSIONS
-        """
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        dorado: \$(dorado --version 2>&1)
+    END_VERSIONS
+    """
 }

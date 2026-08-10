@@ -7,24 +7,25 @@ process PEPPER {
 
     input:
         tuple val(meta), path(bam_bai_files)
-        path (reference_fasta)
+        path (reference)
 
     output:
         tuple val(meta), path("${meta.sample}*.vcf*")               , emit: vcf
         path  ("versions.yml")                                      , emit: versions
 
     script:
+        def reference_fasta = reference.min{ it.toString().length() }
+
     """
-        export PATH=/opt/margin_dir/build/:$PATH
-        run_pepper_margin_deepvariant call_variant \\
-        -b ${meta.sample}.sorted.bam \\
-        -f $reference_fasta \\
-        -o . \\
-        -p ${meta.sample} \\
-        -t ${task.cpus} \\
-        --${params.nanopore_reads_type} \\
-        --phased_output \\
-        --skip_final_phased_bam
+    run_pepper_margin_deepvariant call_variant \\
+    -b ${meta.sample}.sorted.bam \\
+    -f ${reference_fasta} \\
+    -o . \\
+    -p ${meta.sample} \\
+    -t ${task.cpus} \\
+    --${params.nanopore_reads_type} \\
+    --phased_output \\
+    --skip_final_phased_bam
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

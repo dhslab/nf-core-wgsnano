@@ -7,8 +7,7 @@ process WHATSHAP {
 
     input:
         tuple val(meta), path(bam_bai_vcf_files), path(phased_vcf), path(phased_vcf_tbi)
-        path(reference_fasta)
-        path(index)
+        path(reference)
 
     output:
         tuple val(meta), path("${meta.sample}*.haplotagged.bam")     , emit: bam
@@ -16,9 +15,11 @@ process WHATSHAP {
         path  ("versions.yml")                                       , emit: versions
 
     script:
+    // Define reference fasta as the shortest string input in reference (the longer being the index file)
+    def reference_fasta = reference.min{ it.toString().length() }
     def vcf_file = phased_vcf.name != 'NO_FILE.vcf' ? "$phased_vcf" : "${meta.sample}.phased.vcf.gz"
     """
-    whatshap haplotag --tag-supplementary --ignore-read-groups --output-threads=${task.cpus} \\
+    whatshap haplotag --tag-supplementary --ignore-read-groups --skip-missing-contigs --output-threads=${task.cpus} \\
     -o ${meta.sample}.haplotagged.bam --reference ${reference_fasta} $vcf_file ${meta.sample}.sorted.bam && \\
     samtools index ${meta.sample}.haplotagged.bam
 

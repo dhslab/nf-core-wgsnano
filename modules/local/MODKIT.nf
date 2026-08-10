@@ -8,7 +8,7 @@ process MODKIT {
 
     input:
         tuple val(meta), path (bam_bai_files)
-        path (reference_fasta)
+        path (reference)
 
     output:
         tuple val(meta), path ("${meta.sample}.basemods.bedmethyl.hap_1.bed")        , emit: hap1_bed
@@ -18,6 +18,8 @@ process MODKIT {
         path  ("versions.yml")                                                       , emit: versions
 
     script:
+        def reference_fasta = reference.min{ it.toString().length() }
+
     """
     modkit pileup \\
     --threads ${task.cpus}  \\

@@ -66,12 +66,16 @@ include { MULTIQC                                       } from '../modules/local
 include { WHATSHAP                                      } from '../modules/local/WHATSHAP.nf'
 include { SAMTOOLS_STATS                                } from '../modules/local/SAMTOOLS_STATS.nf'
 
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
+// FastA reference
+ch_fasta_reference = params.fasta
+    ? Channel.fromPath("${params.fasta}*", checkIfExists: true).collect()
+    : Channel.empty()
 
 // Info required for completion email and summary
 def multiqc_report = []
@@ -79,6 +83,7 @@ def multiqc_report = []
 workflow WGSNANO {
 
     ch_versions = Channel.empty()
+    ch_aligned_reads = Channel.empty()
 
     //
     // SUBWORKFLOW: Read in samplesheet, validate and stage input files
@@ -128,32 +133,31 @@ workflow WGSNANO {
     ch_versions = ch_versions.mix(FAST5_TO_POD5.out.versions)
 
     } else if (params.reads_format == 'pod5') {
-    INPUT_CHECK
-    .out
-    .reads
-    .map { meta, pod5_path -> 
-        def pod5_files = []
-        if (file(pod5_path).isDirectory()) {
-            pod5_files = file("${pod5_path}/*.pod5")
-        } else if (pod5_path.endsWith('.pod5')) {
-            pod5_files = [file(pod5_path)]
+        INPUT_CHECK
+        .out
+        .reads
+        .map { meta, pod5_path -> 
+            def pod5_files = []
+            if (file(pod5_path).isDirectory()) {
+                pod5_files = file("${pod5_path}/*.pod5")
+            } else if (pod5_path.endsWith('.pod5')) {
+                pod5_files = [file(pod5_path)]
+            }
+            [meta, pod5_files]
         }
-        [meta, pod5_files]
-    }
-    .flatMap { meta, files ->
-        def chunks = files.toList().collate(params.dorado_files_chunksize)  // chunk files into groups of 2
-        def chunkList = []
-        for (int i = 0; i < chunks.size(); i++) {
-            def newMeta = meta.clone()  // clone the meta to avoid modifying the original
-            newMeta.chunkNumber = i + 1  // add chunk number, starting from 1
-            chunkList << [newMeta, chunks[i]]
+        .flatMap { meta, files ->
+            def chunks = files.toList().collate(params.dorado_files_chunksize)  // chunk files into groups of 2
+            def chunkList = []
+            for (int i = 0; i < chunks.size(); i++) {
+                def newMeta = meta.clone()  // clone the meta to avoid modifying the original
+                newMeta.chunkNumber = i + 1  // add chunk number, starting from 1
+                chunkList << [newMeta, chunks[i]]
+            }
+            return chunkList
         }
-        return chunkList
+        // .dump(tag: 'input_pod5', pretty: true)
+        .set { ch_pod5 }
     }
-    // .dump(tag: 'input_pod5', pretty: true)
-    .set { ch_pod5 }
-    }
-
 
     if (params.reads_format == 'pod5' || params.reads_format == 'fast5') {
         DORADO_BASECALLER (
@@ -169,7 +173,7 @@ workflow WGSNANO {
         .set { ch_basecall_single_bams }
 
         MERGE_BASECALL_ID (
-        ch_basecall_single_bams
+            ch_basecall_single_bams
         )
         ch_versions = ch_versions.mix(MERGE_BASECALL_ID.out.versions)
 
@@ -193,7 +197,6 @@ workflow WGSNANO {
         // .dump(tag: 'basecall_sample', pretty: true)
         .set { ch_basecall_sample_merged_bams } // set channel name
 
-
         DORADO_BASECALL_SUMMARY
         .out
         .summary
@@ -209,45 +212,51 @@ workflow WGSNANO {
 
     }
 
-if (params.reads_format == 'bam' ) {
-    INPUT_CHECK
-    .out
-    .reads
-    .flatMap { meta, bam_path -> 
-        def bam_files = []
-        if (file(bam_path).isDirectory()) {
-            bam_files = file("${bam_path}/*.bam")
-        } else if (bam_path.endsWith('.bam')) {
-            bam_files = [file(bam_path)]
+    if (params.reads_format == 'bam' ) {
+        INPUT_CHECK
+        .out
+        .reads
+        .flatMap { meta, bam_path -> 
+            def bam_files = []
+            if (file(bam_path).isDirectory()) {
+                bam_files = file("${bam_path}/*.bam")
+            } else if (bam_path.endsWith('.bam')) {
+                bam_files = [file(bam_path)]
+            }
+            bam_files.collect { [[sample: meta.sample], it] }  // Create a list of [meta, file] pairs
         }
-        bam_files.collect { [[sample: meta.sample], it] }  // Create a list of [meta, file] pairs
-    }
-    .groupTuple(by: 0) // group bams by meta (i.e sample) which is zero-indexed
-    // .dump(tag: 'basecall_sample', pretty: true)
-    .set { ch_basecall_sample_merged_bams } // set channel name
-}
+        .groupTuple(by: 0) // group bams by meta (i.e sample) which is zero-indexed
+        // .dump(tag: 'basecall_sample', pretty: true)
+        .set { ch_basecall_sample_merged_bams } // set channel name
 
-    MERGE_BASECALL_SAMPLE (
-        ch_basecall_sample_merged_bams
-    )
-    ch_versions = ch_versions.mix(MERGE_BASECALL_SAMPLE.out.versions)
+        MERGE_BASECALL_SAMPLE (
+            ch_basecall_sample_merged_bams
+        )
+        ch_versions = ch_versions.mix(MERGE_BASECALL_SAMPLE.out.versions)
+
+        if (params.align_reads) {
+        
+            DORADO_ALIGNER (
+                MERGE_BASECALL_SAMPLE.out.merged_bam,
+                ch_fasta_reference
+            )
+            ch_versions = ch_versions.mix(DORADO_ALIGNER.out.versions)
+            ch_aligned_reads = ch_aligned_reads.mix(DORADO_ALIGNER.out.bam)
     
+        } else {
+    
+            ch_aligned_reads = ch_aligned_reads.mix(MERGE_BASECALL_SAMPLE.out.merged_bam)
 
-    DORADO_ALIGNER (
-        MERGE_BASECALL_SAMPLE.out.merged_bam,
-        file(params.fasta)
-    )
-    ch_versions = ch_versions.mix(DORADO_ALIGNER.out.versions)
-
+        }
+    }
 
     //
     // MODULE: Samtools sort and indedx aligned bams
     //
     SAMTOOLS_SORT (
-        DORADO_ALIGNER.out.bam
+        ch_aligned_reads
     )
     ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions)
-
 
     //
     // MODULE: PEPPER
@@ -256,7 +265,7 @@ if (params.reads_format == 'bam' ) {
     ch_pepper_input.dump(tag: "pepper")
     PEPPER (
         ch_pepper_input,
-        file(params.fasta)
+        ch_fasta_reference
     )
     ch_versions = ch_versions.mix(PEPPER.out.versions)
 
@@ -270,8 +279,7 @@ if (params.reads_format == 'bam' ) {
         ch_whatshap_input.dump(tag: "whatshap")
         WHATSHAP (
             input,
-            file(params.fasta),
-            file(params.fasta_index)
+            ch_fasta_reference
         )
         ch_versions = ch_versions.mix(WHATSHAP.out.versions)
 
@@ -294,14 +302,14 @@ if (params.reads_format == 'bam' ) {
             ch_modkit_input = WHATSHAP.out.bam.mix(WHATSHAP.out.bai).groupTuple(size:2).map{ meta, files -> [ meta, files.flatten() ]}
             MODKIT (
                 ch_modkit_input,
-                file(params.fasta)
+                ch_fasta_reference
             )
             ch_versions = ch_versions.mix(MODKIT.out.versions)
 
             ch_modkit_to_bw_input = MODKIT.out.hap1_bed.join(MODKIT.out.hap2_bed).join(MODKIT.out.combined_bed)
             MODKIT_TO_BW (
                 ch_modkit_to_bw_input,
-                file(params.fasta_index)
+                ch_fasta_reference
             )
             ch_versions = ch_versions.mix(MODKIT_TO_BW.out.versions)
 

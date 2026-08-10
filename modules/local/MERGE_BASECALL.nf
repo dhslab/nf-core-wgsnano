@@ -10,14 +10,14 @@ process MERGE_BASECALL {
         tuple val(meta), path(input_bams)
 
     output:
-        tuple val(meta), path("${meta.id ?: meta.sample}.unaligned.bam")    , emit: merged_bam
+        tuple val(meta), path("${meta.id ?: meta.sample}.merged.bam")    , emit: merged_bam
         path  ("versions.yml")                     , emit: versions
 
     script:
     def prefix = meta.id ?: meta.sample
 
     """
-    samtools merge -@ ${task.cpus} ${prefix}.unaligned.bam $input_bams
+    samtools merge -@ ${task.cpus} ${prefix}.merged.bam $input_bams
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -5,7 +5,7 @@ process MODKIT_TO_BW {
 
     input:
         tuple val(meta), path (hap_1_bed), path (hap_2_bed), path (combined_bed)
-        path fasta_index
+        path reference
 
     output:
         tuple val(meta), path("*.bedmethyl.gz"), emit: gzipped
@@ -13,15 +13,16 @@ process MODKIT_TO_BW {
         path  ("versions.yml")       , emit: versions
 
     script:
+    def reference_index = reference.find { it.name =~ /.*\.fai/ }
     def args = params.modifications ? "-m ${params.modifications}": "" 
     """
     gzip -c $hap_1_bed > ${meta.sample}.hap1.basemods.bedmethyl.gz
     gzip -c $hap_2_bed > ${meta.sample}.hap2.basemods.bedmethyl.gz
     gzip -c $combined_bed > ${meta.sample}.combined.basemods.bedmethyl.gz
 
-    bedmethyl2bw.py -b ${meta.sample}.hap1.basemods.bedmethyl.gz -c $fasta_index $args -o ${meta.sample}.hap1.basemods.bedmethyl.bw
-    bedmethyl2bw.py -b ${meta.sample}.hap2.basemods.bedmethyl.gz -c $fasta_index $args -o ${meta.sample}.hap2.basemods.bedmethyl.bw
-    bedmethyl2bw.py -b ${meta.sample}.combined.basemods.bedmethyl.gz -c $fasta_index $args -o ${meta.sample}.combined.basemods.bedmethyl.bw
+    bedmethyl2bw.py -b ${meta.sample}.hap1.basemods.bedmethyl.gz -c ${reference_index} $args -o ${meta.sample}.hap1.basemods.bedmethyl.bw
+    bedmethyl2bw.py -b ${meta.sample}.hap2.basemods.bedmethyl.gz -c ${reference_index} $args -o ${meta.sample}.hap2.basemods.bedmethyl.bw
+    bedmethyl2bw.py -b ${meta.sample}.combined.basemods.bedmethyl.gz -c ${reference_index} $args -o ${meta.sample}.combined.basemods.bedmethyl.bw
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
